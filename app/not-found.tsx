@@ -1,0 +1,1 @@
+export default function NotFound(){return <main className="empty"><h1>Halaman tidak ditemukan.</h1><p>Alamat ini mungkin berubah atau tidak tersedia.</p><a className="btn primary" href="/">Kembali ke Courvix</a></main>}
