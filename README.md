@@ -69,3 +69,8 @@ Browser checks completed: add member, search without focus loss, successful paym
 ## Production migration
 
 Keep the UI and domain concepts; implement actual `organizations`, `organization_memberships`, `role_assignments`, `teams`, `members`, `sessions`, `attendance`, `invoices`, `payment_attempts`, `gateway_events`, `ledger_entries`, `refunds`, and `audit_events`. Resolve tenant and role from a verified session for every query and mutation. Never move the demo role selector or snapshot-write API into the real financial environment.
+## Public website
+
+Marketing routes: `/`, `/platform`, `/sports`, `/pricing`, `/custom`, `/contact`. The existing demonstration workspace is available at `/dashboard`. Legacy `#app` and marketing hashes redirect to their routes. Public pages use self-hosted Barlow Condensed and Manrope, one optimized WebP sports visual, responsive layouts, and reduced-motion support.
+
+The pricing page contains illustrative packages and an interactive fee calculator. The contact form stores demonstration project briefs in the existing demo workspace; it does not send email or notify staff. Real payment gateway activation and production role enforcement remain outside this demo.
