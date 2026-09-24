@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { seed, feeFor, type DB } from "@/lib/courvix";
 import { z } from "zod";
+import { readStore, account, owner as accessOwner } from "@/lib/demo-access";
+import { scoped, mergeScoped } from "@/lib/access-policy";
 
 // Private, user-owned demonstration workspaces. These are not production club accounts.
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ const payloadSchema = z.object({
           z
             .object({
               id: z.string().max(150),
-              club: z.enum(["batam", "rally"]),
+              club: z.string().min(1).max(150),
             })
             .passthrough(),
         )
@@ -38,7 +40,7 @@ const payloadSchema = z.object({
   }),
 });
 function user(request: Request) {
-  return request.headers.get("oai-authenticated-user-id");
+  return accessOwner(request);
 }
 function fail(message: string, status: number) {
   return Response.json(
@@ -51,22 +53,20 @@ function raw() {
   return env.DB as D1Database;
 }
 export async function GET(request: Request) {
-  const owner = user(request);
-  if (!owner) return fail("Masuk untuk menyimpan demo ke akun.", 401);
   try {
-    const row = await raw()
-      .prepare("SELECT payload, revision FROM demo_workspaces WHERE owner = ?")
-      .bind(owner)
-      .first<{ payload: string; revision: number }>();
+    const store = await readStore(request);
+    const identity = account(request, store.data);
+    if (!identity) return fail("Masuk ke demo terlebih dahulu.", 401);
     return Response.json(
       {
-        data: row ? JSON.parse(row.payload) : seed(),
-        revision: row?.revision || 0,
+        data: scoped(store.data, identity),
+        revision: store.revision,
+        session: identity,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {
-    return fail("Penyimpanan akun sementara tidak tersedia. Coba lagi.", 503);
+    return fail("Workspace belum dapat dimuat. Coba lagi.", 503);
   }
 }
 export async function PUT(request: Request) {
@@ -90,7 +90,7 @@ export async function PUT(request: Request) {
     if (!parsed.success)
       return fail("Data tidak valid. Periksa isian lalu coba lagi.", 422);
     const { revision } = parsed.data;
-    const data = parsed.data.reset ? seed() : (parsed.data.data as DB);
+    let data = parsed.data.reset ? seed() : (parsed.data.data as DB);
     if (data.fee.min > data.fee.max) return fail("Batas fee tidak valid.", 422);
     const baseline = seed();
     if (
@@ -107,10 +107,63 @@ export async function PUT(request: Request) {
         "Data berubah di tab lain. Muat ulang sebelum menyimpan.",
         409,
       );
-    const old: DB = previous ? JSON.parse(previous.payload) : baseline;
+    const store = await readStore(request);
+    const identity = account(request, store.data);
+    if (!identity) return fail("Sesi berakhir. Masuk kembali.", 401);
+    if (parsed.data.reset)
+      return fail(
+        "Reset dinonaktifkan agar akun dan klub yang terdaftar tetap konsisten.",
+        409,
+      );
+    const subscription=store.data.records.Clubs.find((c:any)=>c.id===identity.club);
+    if(identity.role!=='Administrator'&&((subscription?.status==='Trial'&&Date.parse(subscription.trialEnds)<Date.now())||(subscription?.status==='Active'&&subscription.renewAt&&Date.parse(subscription.renewAt)<Date.now())))return fail('Masa langganan demo berakhir. Admin klub dapat mengaktifkan subscription di Settings.',403);
+    const old: DB = store.data;
+    try {
+      data = parsed.data.reset
+        ? ({
+            ...seed(),
+            _access: store.data._access,
+            records: { ...seed().records, Clubs: store.data.records.Clubs },
+          } as DB)
+        : mergeScoped(store.data, data, identity);
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : "Akses ditolak.", 403);
+    }
+    // Identity, club subscriptions and invitation state can only change via /api/access.
+    (data as any)._access = store.data._access;
+    data.records.Clubs = store.data.records.Clubs;
+    data.records["Audit logs"] = [
+      {
+        id: crypto.randomUUID(),
+        club: identity.club,
+        name: "Perubahan workspace",
+        actor: identity.name,
+        date: new Date().toISOString(),
+        status: "Success",
+      },
+      ...old.records["Audit logs"],
+    ];
+    for(const linked of store.data._access.accounts.filter((a:any)=>a.role==='Member'))if(!data.records.Members.some(m=>m.id===linked.member&&m.club===linked.club))return fail('Member memiliki akun login. Nonaktifkan statusnya, jangan hapus data yang terhubung.',409);
     for (const rows of Object.values(data.records))
       if (new Set(rows.map((r) => r.id)).size !== rows.length)
         return fail("Data duplikat terdeteksi.", 422);
+    for (const key of ["Members", "Schedule", "Attendance", "Training"])
+      for (const row of data.records[key] || []) {
+        if (
+          row.team &&
+          !data.records.Teams.some(
+            (t) => t.id === row.team && t.club === row.club,
+          )
+        )
+          return fail("Tim harus berada di klub yang sama.", 422);
+        if (
+          row.member &&
+          !data.records.Members.some(
+            (m) => m.id === row.member && m.club === row.club,
+          )
+        )
+          return fail("Member harus berada di klub yang sama.", 422);
+      }
     for (const invoice of data.records.Invoices) {
       if (
         !data.records.Members.some(
@@ -196,7 +249,7 @@ export async function PUT(request: Request) {
         409,
       );
     return Response.json(
-      { data, revision: revision + 1 },
+      { data: scoped(data, identity), revision: revision + 1 },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

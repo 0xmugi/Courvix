@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Click the Courvix logo to view the landing page, or open http://localhost:5173/#landing. The sidebar contains the demo role and club switchers.
+Open http://localhost:5173 for the landing page or /login for the demo identity picker. The dashboard has no role or club switchers. If port 5173 is occupied, use `node scripts/run-framework.mjs dev --port 5181`.
 
 On a Windows installation where the npm shim fails, the equivalent development command is `node scripts/run-framework.mjs dev` after dependencies are installed.
 
@@ -28,14 +28,14 @@ On a Windows installation where the npm shim fails, the equivalent development c
 - Finance, cash flow, CSV exports protected against spreadsheet formula injection.
 - Club website content editor with preview; landing page service inquiry records.
 - Accessible dialogs/tabs/sidebar, reduced-motion support, loading/error/empty states, mutation feedback, duplicate-click lock.
-- Private per-signed-in-viewer D1 demo persistence; unauthenticated local preview falls back to clearly labeled browser-local data.
+- Private per-signed-in-viewer D1 demo persistence; server-scoped demo sessions gate workspace access. Localhost uses a separate local-preview owner.
 - API origin checks, owner scoping, schema validation, optimistic concurrency, server fee calculation, invoice/member club validation, and protected paid-payment history.
 
 ## Important scope boundaries
 
-This is a demonstration workspace, **not a production financial or multi-tenant club service**. The role switcher deliberately allows the owner to explore every simulated role. It is not authentication or server-enforced staff RBAC. Private D1 state is scoped to the signed-in Sites viewer, not shared between real coach/member accounts.
+This is a demonstration workspace, **not a production financial or multi-tenant club service**. The login page deliberately allows the owner to select a simulated identity. Server-side session checks enforce that identity’s club and role until logout. The picker is not production user authentication. Private D1 state is scoped to the signed-in Sites viewer, not shared between real coach/member accounts.
 
-No real money moves. Payment success is a demo command, not a verified provider webhook. Merchant onboarding, a live provider adapter, signed webhooks, reconciliation, split settlement, partial refunds, rate limiting, production account invitations/MFA, and organization-specific server authorization still need implementation before real use.
+No real money moves. Payment success is a demo command, not a verified provider webhook. Merchant onboarding, a live provider adapter, signed webhooks, reconciliation, split settlement, partial refunds, rate limiting, verified account invitations/MFA, and a full production authorization review still need implementation before real use.
 
 Documents are text records, not private file uploads. No email/WhatsApp is sent. Custom domains, real subscriptions, CSV import, invoice PDFs, advanced sport-specific scoring, facility/equipment management, configurable fee overrides per club, and full reporting date filters are not enabled. Calendar covers the September 2026 demo period. Schedule conflict detection currently matches exact date/time/team/venue; overlapping durations are a production follow-up.
 
@@ -62,7 +62,7 @@ node tests/api-smoke.mjs
 node scripts/run-framework.mjs build
 ```
 
-The API smoke test requires the local server and migrated local D1 database. It adds one explicitly named synthetic test invoice per run. It checks unauthorized access, cross-origin mutation rejection, schema validation, fee recalculation, stale-write conflict, immutable history, and cross-club references.
+The API smoke test requires the local server and migrated local D1 database. It creates synthetic clubs, identities, and invitations in the local preview. It verifies session gates, club-scoped reads and writes, platform-fee permissions, valid admin writes, coach scope, registration, subscription activation, revocation, email matching, invitation replay rejection, and logout.
 
 Browser checks completed: add member, search without focus loss, successful payment and outstanding-count update, coach/team filtering, attendance reflected in the member view, role navigation, and valid/invalid WebMCP navigation. Responsive verification is documented in the task delivery.
 
@@ -74,3 +74,13 @@ Keep the UI and domain concepts; implement actual `organizations`, `organization
 Marketing routes: `/`, `/platform`, `/sports`, `/pricing`, `/custom`, `/contact`. The existing demonstration workspace is available at `/dashboard`. Legacy `#app` and marketing hashes redirect to their routes. Public pages use self-hosted Barlow Condensed and Manrope, one optimized WebP sports visual, responsive layouts, and reduced-motion support.
 
 The pricing page contains illustrative packages and an interactive fee calculator. The contact form stores demonstration project briefs in the existing demo workspace; it does not send email or notify staff. Real payment gateway activation and production role enforcement remain outside this demo.
+
+## Demo accounts and club onboarding
+
+The demonstration now requires a session from `/login`. This is an explicit identity simulator within each private Sites viewer's sandbox, not a production password or email login. Public demo account selection remains intentional. Real multi-user authentication, email verification, subscription webhooks, and delivery of invitations are not connected.
+
+`/register` creates a club, its Admin identity, a first training group, and a 14-day trial. `/join` accepts a unique, email-bound, one-use invitation expiring after seven days. Admin Settings creates/revokes invitations and simulates subscription activation. Existing manually entered members are linked by club and email when joining.
+
+Sessions use opaque random HttpOnly cookies (Secure on HTTPS), expire after 24 hours, and are bound to the private Sites viewer. `/api/demo-state` scopes reads and merges authorized writes on the server. Other clubs' data, private session records, and invitation secrets are excluded from workspace responses. Club Admins cannot change platform fees. Coach access is limited to their team; Member invoices and attendance are personal. Concurrent edits use revision checks. Trial/paid-demo expiry blocks workspace writes until a simulated renewal. No production security guarantee is implied by the demo account picker.
+
+Run `COURVIX_TEST_URL=http://localhost:5181 node tests/access-smoke.mjs` against a local preview for onboarding and access regression checks. On PowerShell set `$env:COURVIX_TEST_URL` separately. Tests create example clubs only in the local preview database. Legacy browser-local demo snapshots are no longer used for authenticated workspaces.

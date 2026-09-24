@@ -1,0 +1,209 @@
+.access-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #fff;
+  color: #20251c;
+  font-family: Manrope, sans-serif;
+}
+.access-story {
+  background: #ff641a;
+  padding: 45px 9%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 55px;
+}
+.access-logo {
+  font-size: 36px;
+  font-weight: 850;
+  letter-spacing: -2px;
+}
+.access-logo span {
+  color: #fff;
+}
+.access-kicker {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  font-weight: 800;
+}
+.access-story h1 {
+  font-family: Barlow, Impact, sans-serif;
+  font-size: clamp(65px, 6vw, 100px);
+  line-height: 1;
+  margin: 30px 0;
+}
+.access-story h1 em {
+  color: white;
+  font-style: normal;
+}
+.access-story p {
+  max-width: 400px;
+  font-size: 16px;
+}
+.access-steps {
+  display: grid;
+  gap: 13px;
+  margin-top: 35px;
+  border-top: 1px solid #191d1933;
+  padding-top: 25px;
+  font-weight: 750;
+}
+.access-main {
+  padding: 40px 10%;
+  display: flex;
+  flex-direction: column;
+  gap: 35px;
+  justify-content: center;
+}
+.access-main nav {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 800;
+}
+.access-main nav a[aria-current] {
+  color: #b83d08;
+  border-bottom: 2px solid #ff641a;
+}
+.access-main h2 {
+  font-size: 30px;
+  line-height: 1.2;
+  margin: 15px 0;
+}
+.access-main form > p {
+  margin: 15px 0 25px;
+  color: #646e5c;
+}
+.access-main label {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+.access-main input,
+.access-main select {
+  padding: 12px;
+  border: 1px solid #c6cebf;
+  border-radius: 5px;
+  background: white;
+  color: #27371d;
+  width: 100%;
+  min-width: 0;
+}
+.access-main .btn {
+  width: 100%;
+  margin-top: 15px;
+  padding: 14px;
+}
+.access-account {
+  background: #fff0e7;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.access-account p {
+  margin: 0;
+  font-size: 13px;
+}
+.access-note {
+  font-size: 12px !important;
+  line-height: 1.7;
+}
+.club-access {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.club-access .padded > p {
+  margin: 12px 0;
+}
+.access-invites {
+  grid-column: 1/-1;
+}
+.access-invites article {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  border-bottom: 1px solid #ddd;
+}
+.access-invites code {
+  display: block;
+  background: #fff0e7;
+  padding: 10px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  user-select: all;
+}
+.access-success {
+  grid-column: 1/-1;
+  background: #e4f4e8;
+  color: #245c32;
+  padding: 15px;
+}
+.club-access > .error {
+  grid-column: 1/-1;
+}
+.session-identity {
+  padding: 12px;
+  background: #fff0e7;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.session-identity strong,
+.session-identity small {
+  display: block;
+}
+.club-switch strong {
+  font-size: 12px;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.onboard-links {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.onboard-links a {
+  font-weight: 800;
+  color: #a43b09;
+}
+@media (max-width: 800px) {
+  .access-shell {
+    grid-template-columns: 1fr;
+  }
+  .access-story {
+    padding: 28px 7%;
+    gap: 20px;
+  }
+  .access-story h1 {
+    font-size: 52px;
+    margin: 15px 0;
+  }
+  .access-story p,
+  .access-steps,
+  .access-story > small {
+    display: none;
+  }
+  .access-main {
+    padding: 30px 7%;
+  }
+  .club-access {
+    grid-template-columns: 1fr;
+  }
+  .access-invites article {
+    flex-direction: column;
+  }
+}
+@font-face {
+  font-family: Barlow;
+  src: url("/barlow-condensed-800.ttf") format("truetype");
+  font-weight: 800;
+  font-display: swap;
+}

@@ -19,12 +19,13 @@ const links = [
 ];
 export default function Marketing({ page = "home" }: { page?: string }) {
   const [open, setOpen] = useState(false);
+  const [paused,setPaused]=useState(false);
   useEffect(() => {
     if (page === "home") {
       const old = location.hash.slice(1);
       if (["platform", "sports", "pricing", "custom", "contact"].includes(old))
         location.replace("/" + old);
-      if (old === "app") location.replace("/dashboard");
+      if (old === "app") location.replace("/login");
     }
     const observer = new IntersectionObserver(
       (entries) =>
@@ -42,7 +43,7 @@ export default function Marketing({ page = "home" }: { page?: string }) {
     return () => observer.disconnect();
   }, [page]);
   return (
-    <div className="cv-public">
+    <div className={"cv-public"+(paused?" cv-paused":"")}>
       <a className="cv-skip" href="#main-content">
         Lewati ke konten
       </a>
@@ -61,7 +62,7 @@ export default function Marketing({ page = "home" }: { page?: string }) {
             </a>
           ))}
         </nav>
-        <a className="cv-button small" href="/dashboard">
+        <a className="cv-button small" href="/login">
           Coba demo <ArrowUpRight size={17} />
         </a>
         <button
@@ -91,16 +92,16 @@ export default function Marketing({ page = "home" }: { page?: string }) {
                   latihan, dan pembayaran. Bawa klubmu melangkah lebih jauh.
                 </p>
                 <div className="cv-actions">
-                  <a className="cv-button" href="/dashboard">
+                  <a className="cv-button" href="/login">
                     Jelajahi demo <ArrowUpRight size={20} />
                   </a>
-                  <a className="cv-textlink" href="/platform">
-                    Kenali platform <ArrowRight size={18} />
+                  <a className="cv-textlink" href="/register">
+                    Daftarkan klub <ArrowRight size={18} />
                   </a>
                 </div>
                 <div className="cv-hero-note">
                   <span>01 / LESS ADMIN. MORE ACTION.</span>
-                  <span>UNTUK SETIAP OLAHRAGA ↗</span>
+                  <button className="cv-motion-toggle" onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Putar animasi":"Jeda animasi"}</button>
                 </div>
               </div>
               <div className="cv-hero-image">
@@ -122,15 +123,20 @@ export default function Marketing({ page = "home" }: { page?: string }) {
               </div>
             </section>
             <div className="cv-sportstrip">
-              <span>BASKETBALL</span>
-              <span>✳</span>
-              <span>BADMINTON</span>
-              <span>✳</span>
-              <span>FOOTBALL</span>
-              <span>✳</span>
-              <span>SWIMMING</span>
-              <span>✳</span>
-              <span>YOUR SPORT.</span>
+              <div className="cv-ticker">
+                <span>BASKETBALL</span>
+                <span>✳</span>
+                <span>BADMINTON</span>
+                <span>✳</span>
+                <span>FOOTBALL</span>
+                <span>✳</span>
+                <span>SWIMMING</span>
+                <span>✳</span>
+                <span>YOUR SPORT.</span>
+                <span aria-hidden="true">
+                  ✳ BASKETBALL ✳ BADMINTON ✳ FOOTBALL ✳ SWIMMING ✳ YOUR SPORT.
+                </span>
+              </div>
             </div>
             <HomeSections />
           </>

@@ -96,7 +96,7 @@ export function CTA() {
           <br />
           Bangun langkah berikutnya bersama Courvix.
         </p>
-        <a className="cv-button dark" href="/dashboard">
+        <a className="cv-button dark" href="/login">
           Masuk ke demo <ArrowUpRight />
         </a>
       </div>
@@ -106,6 +106,52 @@ export function CTA() {
 export function HomeSections() {
   return (
     <>
+      <section className="cv-section cv-onboarding">
+        <div>
+          <div className="cv-eyebrow">FROM SIGN-UP TO TEAMWORK</div>
+          <h2>
+            KLUBMU SIAP.
+            <br />
+            <em>TIMMU TERHUBUNG.</em>
+          </h2>
+          <p>
+            Daftarkan klub sendiri, pilih paket, lalu undang orang-orang di
+            balik setiap latihan. Setiap klub punya ruangnya sendiri.
+          </p>
+          <div className="cv-actions">
+            <a className="cv-button" href="/register">
+              Daftarkan klub <ArrowUpRight />
+            </a>
+            <a className="cv-textlink" href="/join">
+              Punya kode undangan?
+            </a>
+          </div>
+        </div>
+        <div className="cv-onboarding-flow">
+          {[
+            [
+              "01",
+              "CREATE YOUR CLUB",
+              "Buat workspace dan mulai trial 14 hari.",
+            ],
+            ["02", "BRING YOUR PEOPLE", "Kode unik untuk coach dan member."],
+            [
+              "03",
+              "GET IN THE GAME",
+              "Masuk ke klubmu, jalankan sesi pertamamu.",
+            ],
+          ].map(([n, t, d]) => (
+            <article key={n}>
+              <b>{n}</b>
+              <div>
+                <h3>{t}</h3>
+                <p>{d}</p>
+              </div>
+              <Check />
+            </article>
+          ))}
+        </div>
+      </section>
       <section className="cv-section">
         <div className="cv-section-head">
           <div>
@@ -316,7 +362,7 @@ export function Platform() {
             <TabsContent key={role} value={role}>
               <h3>{title}</h3>
               <p>{text}</p>
-              <a className="cv-button dark" href="/dashboard">
+              <a className="cv-button dark" href="/login">
                 Coba pilihan peran di demo <ArrowUpRight />
               </a>
             </TabsContent>
@@ -831,46 +877,21 @@ export function Contact() {
     setError("");
     setStatus("");
     try {
-      const row = {
-        id: crypto.randomUUID(),
-        club: "batam",
-        name: String(f.get("club")),
-        contact: String(f.get("name")),
-        email: String(f.get("email")),
-        description: String(f.get("message")),
-        status: "New",
-        date: new Date().toISOString().slice(0, 10),
-        type: "Website / system",
-      };
-      const response = await fetch("/api/demo-state", {
+      const response = await fetch("/api/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "brief",
+          name: String(f.get("club")),
+          contact: String(f.get("name")),
+          email: String(f.get("email")),
+          description: String(f.get("message")),
+        }),
         signal: AbortSignal.timeout(15000),
       });
-      if (response.status === 401) {
-        const saved = localStorage.getItem("courvix-demo-v2");
-        const data = saved ? JSON.parse(saved) : seed();
-        data.records.Projects = [row, ...(data.records.Projects || [])];
-        localStorage.setItem("courvix-demo-v2", JSON.stringify(data));
-      } else {
-        if (!response.ok)
-          throw Error("Penyimpanan sementara tidak tersedia. Coba kembali.");
-        const snapshot = await response.json() as {data: DB; revision: number};
-        snapshot.data.records.Projects = [
-          row,
-          ...(snapshot.data.records.Projects || []),
-        ];
-        const result = await fetch("/api/demo-state", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(snapshot),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!result.ok)
-          throw Error(
-            result.status === 409
-              ? "Data berubah di tab lain. Coba simpan kembali."
-              : "Belum berhasil disimpan. Isian tetap tersedia untuk dicoba kembali.",
-          );
-      }
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw Error(result.error || "Brief belum tersimpan. Coba kembali.");
       setStatus(
         "Brief tersimpan di demo. Lihat melalui peran Administrator → Projects. Belum dikirim ke tim Courvix.",
       );
@@ -915,7 +936,7 @@ export function Contact() {
               Coba dashboard dengan data contoh tanpa membuat transaksi
               sungguhan.
             </p>
-            <a href="/dashboard" className="cv-textlink">
+            <a href="/login" className="cv-textlink">
               Buka demo <ArrowUpRight />
             </a>
           </div>

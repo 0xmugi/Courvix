@@ -59,6 +59,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast, Toaster } from "sonner";
 import { seed, clubs, money, feeFor, type DB, type Row } from "@/lib/courvix";
 import Landing from "./landing";
+import { ClubAccess, accessAction } from "./access-client";
+import type { Identity } from "@/lib/access-policy";
 import { TeamsView, CalendarView, MemberDetails } from "./operations";
 const icons: any = {
   Dashboard: LayoutDashboard,
@@ -187,65 +189,69 @@ export default function Courvix() {
   const [storage, setStorage] = useState("local");
   const revision = useRef(0);
   const lock = useRef(false);
-  const org = clubs.find((c) => c.id === club)!;
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const organizations = db.records.Clubs || clubs;
+  const org = organizations.find((c: any) => c.id === club) || {
+    id: club,
+    name: "Courvix platform",
+    short: "CVX",
+    sport: "",
+  };
+  async function logout() {
+    try {
+      await accessAction({ action: "logout" });
+      location.assign("/login");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Keluar gagal. Coba lagi.");
+    }
+  }
   const admin = role === "Admin" || role === "Administrator";
   useEffect(() => {
     const controller = new AbortController();
-    const loadLocal = () => {
-      try {
-        const raw = localStorage.getItem("courvix-demo-v2");
-        if (!raw) return;
-        const saved = JSON.parse(raw);
-        if (saved.records?.Members && saved.fee && saved.websites) setDb(saved);
-      } catch {
-        toast.error(
-          "Data lokal tidak dapat dibaca. Data awal demo ditampilkan.",
-        );
-      }
-    };
-    async function load() {
-      try {
-        const response = await fetch("/api/demo-state", {
-          signal: controller.signal,
-        });
-        if (response.ok) {
-          const payload = (await response.json()) as {
-            data: DB;
-            revision: number;
-          };
-          setDb(payload.data);
-          revision.current = payload.revision;
-          setStorage("cloud");
-        } else {
-          loadLocal();
-          if (response.status !== 401)
-            toast.info(
-              "Penyimpanan akun belum tersedia. Demo lokal tetap dapat digunakan.",
-            );
+    fetch("/api/demo-state", { signal: controller.signal })
+      .then(async (response) => {
+        if (response.status === 401) {
+          location.replace("/login");
+          return;
         }
-      } catch (e) {
-        if (!controller.signal.aborted) {
-          loadLocal();
-          toast.info(
-            "Mode demo lokal aktif. Penyimpanan akun belum terhubung.",
+        if (!response.ok)
+          throw Error(
+            "Workspace tidak dapat dimuat. Muat ulang untuk mencoba kembali.",
           );
-        }
-      } finally {
-        if (!controller.signal.aborted) setReady(true);
-      }
-    }
-    load();
-    if (location.hash === "#landing") setSurface("landing");
+        const payload = (await response.json()) as {
+          data: DB;
+          revision: number;
+          session: Identity;
+        };
+        if (controller.signal.aborted) return;
+        setDb(payload.data);
+        revision.current = payload.revision;
+        setIdentity(payload.session);
+        setRole(payload.session.role);
+        setClub(payload.session.club);
+        setStorage("cloud");
+        setSession(payload.session.club + "-s0");
+        setReady(true);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setLoadError(e.message);
+      });
     return () => controller.abort();
   }, []);
   const scope = (requested: string) => {
     const key = requested === "Payments" ? "Invoices" : requested;
-    const ownMember = db.records.Members.find((m) => m.id === club + "-1");
+    const ownMember = db.records.Members.find(
+      (m) => m.id === (identity?.member || club + "-1"),
+    );
     return (db.records[key] || []).filter((r) => {
       if (role !== "Administrator" && r.club !== club) return false;
       if (role === "Member") {
         if (["Members", "Invoices", "Attendance"].includes(key))
-          return r.id === club + "-1" || r.member === club + "-1";
+          return (
+            r.id === (identity?.member || club + "-1") ||
+            r.member === (identity?.member || club + "-1")
+          );
         if (key === "Schedule") return r.team === ownMember?.team;
       }
       if (
@@ -253,10 +259,10 @@ export default function Courvix() {
         ["Members", "Schedule", "Teams", "Attendance", "Training"].includes(key)
       )
         return (
-          r.team === club + "-t0" ||
-          r.id === club + "-t0" ||
+          r.team === (identity?.team || club + "-t0") ||
+          r.id === (identity?.team || club + "-t0") ||
           db.records.Members.find((m) => m.id === r.member)?.team ===
-            club + "-t0"
+            (identity?.team || club + "-t0")
         );
       return true;
     });
@@ -276,6 +282,7 @@ export default function Courvix() {
       .filter((r) => ["Paid", "Refunded"].includes(r.status))
       .reduce((s, r) => s + r.gateway, 0);
   const go = (p: string) => {
+    if (!roleNav[role].includes(p)) return;
     setPage(p);
     setQuery("");
     setFilter("All");
@@ -319,6 +326,10 @@ export default function Courvix() {
           revision: number;
           error?: string;
         };
+        if (response.status === 401) {
+          location.replace("/login");
+          throw Error("Sesi berakhir.");
+        }
         if (!response.ok)
           throw Error(result.error || "Perubahan gagal disimpan.");
         revision.current = result.revision;
@@ -869,7 +880,7 @@ export default function Courvix() {
                   ? "Let’s build a stronger team"
                   : role === "Member"
                     ? "Your next chapter starts here"
-                    : "Good afternoon, Gilang"}
+                    : `Selamat datang, ${identity?.name || "tim"}`}
               <span className="orange">.</span>
             </h1>
             <p>
@@ -1260,6 +1271,21 @@ export default function Courvix() {
     );
   }
   function SettingsPage() {
+    if (role === "Admin")
+      return (
+        <ClubAccess
+          onUpdated={() => {
+            fetch("/api/demo-state")
+              .then(async (r) => {
+                if (!r.ok) return;
+                const p = (await r.json()) as { data: DB; revision: number };
+                setDb(p.data);
+                revision.current = p.revision;
+              })
+              .catch(() => {});
+          }}
+        />
+      );
     return (
       <div className="settings-grid">
         <div className="panel padded">
@@ -1374,15 +1400,13 @@ export default function Courvix() {
             dokumen pribadi, atau data kartu.
           </p>
           <p className="hint">
-            Autentikasi produksi, isolasi data server, domain, pesan eksternal,
-            dan payment gateway membutuhkan backend serta konfigurasi merchant.
+            Autentikasi produksi, domain, pesan eksternal, dan payment gateway
+            membutuhkan backend serta konfigurasi merchant.
           </p>
-          <button
-            className="btn danger"
-            onClick={() => open({ type: "reset" })}
-          >
-            Reset data demo
-          </button>
+          <p className="hint">
+            Akun, undangan, dan data klub tersimpan dalam demo privat ini.
+            Keluar untuk mencoba identitas demo lainnya.
+          </p>
         </div>
       </div>
     );
@@ -1545,6 +1569,23 @@ export default function Courvix() {
       </>
     );
   }
+  if (!ready || !identity)
+    return (
+      <main className="access-main" style={{ minHeight: "100vh" }}>
+        <h1>Courvix</h1>
+        <p role={loadError ? "alert" : "status"}>
+          {loadError || "Memeriksa sesi demo…"}
+        </p>
+        {loadError && (
+          <>
+            <button className="btn" onClick={() => location.reload()}>
+              Coba lagi
+            </button>
+            <a href="/login">Kembali ke login</a>
+          </>
+        )}
+      </main>
+    );
   return (
     <>
       <Toaster position="bottom-right" richColors />
@@ -1575,21 +1616,9 @@ export default function Courvix() {
               <div className="club-switch">
                 <span className="club-icon">{org.short}</span>
                 <div>
-                  <select
-                    aria-label="Pilih klub"
-                    value={club}
-                    onChange={(e) => {
-                      setClub(e.target.value);
-                      setSession(e.target.value + "-s0");
-                      go("Dashboard");
-                    }}
-                  >
-                    {clubs.map((c) => (
-                      <option value={c.id} key={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <strong>
+                    {role === "Administrator" ? "Courvix · Platform" : org.name}
+                  </strong>
                   <small>
                     Club workspace <span>DEMO</span>
                   </small>
@@ -1627,28 +1656,20 @@ export default function Courvix() {
               </SidebarMenu>
             </SidebarContent>
             <SidebarFooter>
-              <div className="demo-switch">
-                <label htmlFor="role">EXPLORE A DEMO ROLE</label>
-                <select
-                  id="role"
-                  value={role}
-                  onChange={(e) => {
-                    setRole(e.target.value);
-                    go("Dashboard");
-                  }}
-                >
-                  {Object.keys(roleNav).map((r) => (
-                    <option key={r}>{r}</option>
-                  ))}
-                </select>
+              <div className="session-identity">
+                <strong>{identity?.name}</strong>
+                <small>
+                  {role} · {role === "Administrator" ? "Platform" : org.short}
+                </small>
               </div>
               <button
                 className="user-profile"
-                onClick={() => setSurface("landing")}
+                onClick={logout}
+                aria-label="Keluar dari demo"
               >
                 <span className="avatar user">GP</span>
                 <span>
-                  <strong>Gilang Pratama</strong>
+                  <strong>Keluar dari demo</strong>
                   <small>
                     {role === "Admin" ? "Club administrator" : role}
                   </small>
@@ -1727,6 +1748,28 @@ export default function Courvix() {
                       {error}
                     </p>
                   )}
+                  {role === "Admin" && page === "Members" && (
+                    <div className="onboard-links">
+                      <button className="btn" onClick={() => go("Settings")}>
+                        Undang member / coach
+                      </button>
+                      <span className="hint">
+                        Tambah manual untuk pendataan; undang untuk memberi
+                        akses login.
+                      </span>
+                    </div>
+                  )}
+                  {role === "Administrator" && page === "Clubs" && (
+                    <div className="onboard-links">
+                      <a href="/register">
+                        Simulasikan pendaftaran klub mandiri ↗
+                      </a>
+                      <p className="hint">
+                        Klub membuat akun admin, memilih paket, lalu memulai
+                        trial. Administrator memantau klub dan subscription.
+                      </p>
+                    </div>
+                  )}
                   {page === "Dashboard" ? (
                     Dashboard()
                   ) : page === "Teams" ? (
@@ -1760,7 +1803,7 @@ export default function Courvix() {
                     Website()
                   ) : page === "Clubs" ? (
                     <div className="team-grid">
-                      {clubs.map((c) => (
+                      {organizations.map((c: any) => (
                         <div className="panel padded" key={c.id}>
                           <span className="club-icon">{c.short}</span>
                           <h2>{c.name}</h2>
@@ -1775,12 +1818,10 @@ export default function Courvix() {
                           <button
                             className="btn"
                             onClick={() => {
-                              setClub(c.id);
-                              setRole("Admin");
-                              go("Dashboard");
+                              open({ type: "club-info", clubInfo: c });
                             }}
                           >
-                            Open demo workspace <ArrowRight size={16} />
+                            Detail klub <ArrowRight size={16} />
                           </button>
                         </div>
                       ))}
@@ -1936,6 +1977,21 @@ export default function Courvix() {
                 Konfirmasi refund
               </button>
             </>
+          )}
+          {modal?.type === "club-info" && (
+            <div className="breakdown">
+              <h2>{modal.clubInfo.name}</h2>
+              <p>
+                Olahraga <b>{modal.clubInfo.sport}</b>
+              </p>
+              <p>
+                Subscription{" "}
+                <b>
+                  {modal.clubInfo.status} · {modal.clubInfo.plan}
+                </b>
+              </p>
+              <p>Admin klub mengelola workspace melalui akun mereka sendiri.</p>
+            </div>
           )}
           {modal?.type === "reset" && (
             <>

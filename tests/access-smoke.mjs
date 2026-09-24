@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+const base=process.env.COURVIX_TEST_URL||'http://localhost:5181';let cookie='';
+async function call(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Origin:base,'Content-Type':'application/json',Cookie:cookie},...(body?{body:JSON.stringify(body)}:{})});const c=r.headers.get('set-cookie');if(c)cookie=c.split(';')[0];return {status:r.status,data:await r.json()}}
+let r=await call('/api/demo-state');assert.equal(r.status,401);
+await call('/api/access',{action:'login',account:'batam-admin'});
+r=await call('/api/demo-state');assert.equal(r.status,200);assert.equal(r.data.session.club,'batam');assert.ok(Object.values(r.data.data.records).flat().every(x=>x.club==='batam'));assert.ok(!r.data.data._access);
+const bad=structuredClone(r.data);bad.data.records.Members.push({id:'attack',club:'rally',name:'cross club'});let res=await fetch(base+'/api/demo-state',{method:'PUT',headers:{Origin:base,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify(bad)});assert.equal(res.status,403);
+const wrongFee=structuredClone(r.data);wrongFee.data.fee.rate=99;res=await fetch(base+'/api/demo-state',{method:'PUT',headers:{Origin:base,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify(wrongFee)});assert.equal(res.status,403);
+const valid=structuredClone(r.data);valid.data.records.Members.push({id:'qa-'+Date.now(),club:'batam',name:'Demo member test',email:'test@example.test',team:'batam-t0',status:'Active'});res=await fetch(base+'/api/demo-state',{method:'PUT',headers:{Origin:base,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify(valid)});assert.equal(res.status,200,await res.text());
+await call('/api/access',{action:'login',account:'batam-coach'});let coach=await call('/api/demo-state');assert.equal(coach.data.data.records.Invoices.length,0);assert.ok(coach.data.data.records.Members.every(x=>x.team==='batam-t0'));
+const suffix=Date.now();await call('/api/access',{action:'register',name:'QA Owner',email:`owner${suffix}@example.test`,clubName:'QA Sports '+suffix,sport:'Basket',plan:'Growth'});r=await call('/api/demo-state');assert.equal(r.status,200);const club=r.data.session.club;assert.notEqual(club,'batam');assert.equal(r.data.data.records.Members.length,0);const team=r.data.data.records.Teams[0].id;
+r=await call('/api/access',{action:'subscribe',plan:'Starter'});assert.equal(r.status,200);
+r=await call('/api/access',{action:'invite',email:`member${suffix}@example.test`,role:'Member',team});assert.equal(r.status,200);const invite=(await call('/api/access')).data.invites.at(-1);assert.match(invite.code,/^CVX-[A-F0-9]{32}$/);
+r=await call('/api/access',{action:'invite',email:`revoked${suffix}@example.test`,role:'Coach',team});assert.equal(r.status,200);const revoked=(await call('/api/access')).data.invites.at(-1);assert.notEqual(revoked.code,invite.code);await call('/api/access',{action:'revoke',id:revoked.id});r=await call('/api/access',{action:'join',name:'Revoked',email:revoked.email,code:revoked.code});assert.equal(r.status,400);
+r=await call('/api/access',{action:'join',email:'wrong@example.test',name:'No',code:invite.code});assert.equal(r.status,400);
+r=await call('/api/access',{action:'join',email:`member${suffix}@example.test`,name:'QA Member',code:invite.code});assert.equal(r.status,200);r=await call('/api/demo-state');assert.equal(r.data.session.role,'Member');assert.equal(r.data.session.club,club);assert.equal(r.data.data.records.Members.length,1);
+r=await call('/api/access',{action:'join',email:`member${suffix}@example.test`,name:'Again',code:invite.code});assert.equal(r.status,400);
+r=await call('/api/access',{action:'invite',email:'unauthorized@example.test',role:'Coach',team});assert.equal(r.status,400);
+await call('/api/access',{action:'logout'});r=await call('/api/demo-state');assert.equal(r.status,401);
+console.log('PASS: login gate, club isolation, cross-club write rejection, fee permissions, self-registration, subscription, email-bound invite, join, replay rejection, member permissions and logout.');
