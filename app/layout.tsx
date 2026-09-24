@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./dashboard-theme.css";
 
 export const metadata: Metadata = {
   title: "Courvix — Sports Club Management",
@@ -20,9 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <head><link rel="stylesheet" href="/manrope-font.css" /></head><body className="antialiased">{children}</body>
+      <head>
+        <link rel="stylesheet" href="/manrope-font.css" />
+      </head>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
-
-
