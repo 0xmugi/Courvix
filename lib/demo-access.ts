@@ -19,11 +19,14 @@ export type Access = {
 export function owner(request: Request) {
   return (
     request.headers.get("oai-authenticated-user-id") ||
+    guestOwner(request) ||
     (["localhost", "127.0.0.1"].includes(new URL(request.url).hostname)
       ? "local-demo-preview"
       : null)
   );
 }
+function guestOwner(request:Request){const id=request.headers.get('cookie')?.match(/(?:^|;\s*)courvix_guest=([a-f0-9-]{36})(?:;|$)/)?.[1];return id?'guest:'+id:null;}
+export function prepareGuest(request:Request){if(owner(request))return {request,header:''};const id=crypto.randomUUID();const headers=new Headers(request.headers);headers.set('cookie',(headers.get('cookie')||'')+'; courvix_guest='+id);return {request:new Request(request,{headers}),header:'courvix_guest='+id+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000'+(new URL(request.url).protocol==='https:'?'; Secure':'')};}
 export function initialAccess(): Access {
   return {
     accounts: [

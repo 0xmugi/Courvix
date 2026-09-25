@@ -1,5 +1,6 @@
 import {
   readStore,
+  prepareGuest,
   saveStore,
   account,
   cookie,
@@ -13,6 +14,7 @@ const text = (v: unknown, max = 150) =>
   typeof v === "string" ? v.trim().slice(0, max) : "";
 export async function GET(req: Request) {
   try {
+    const guest=prepareGuest(req);req=guest.request;
     const s = await readStore(req);
     const a = account(req, s.data);
     return Response.json(
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
           ? s.data.records.Teams.filter((t: any) => t.club === a.club)
           : [],
       },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: { "Cache-Control": "no-store",...(guest.header?{"Set-Cookie":guest.header}:{}) } },
     );
   } catch (e) {
     return failure(e);
@@ -51,6 +53,7 @@ export async function POST(req: Request) {
   try {
     if (req.headers.get("origin") !== new URL(req.url).origin)
       throw Error("Origin tidak diizinkan.");
+    const guest=prepareGuest(req);req=guest.request;
     const raw = await req.text();
     if (raw.length > 12000) throw Error("Permintaan terlalu besar.");
     const b = JSON.parse(raw);
@@ -254,7 +257,8 @@ export async function POST(req: Request) {
     if (newCookie)
       headers["Set-Cookie"] =
         newCookie + (new URL(req.url).protocol === "https:" ? "; Secure" : "");
-    return Response.json({ ok: true }, { headers });
+    const responseHeaders=new Headers(headers);if(guest.header)responseHeaders.append('Set-Cookie',guest.header);
+    return Response.json({ ok: true }, { headers:responseHeaders });
   } catch (e) {
     return failure(e);
   }

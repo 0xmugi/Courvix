@@ -247,7 +247,7 @@ export default function AccessPage({
             <ArrowUpRight size={18} />
           </button>
           <p className="access-note">
-            Login ini adalah pemilihan identitas dalam demo privat, bukan
+            Login ini adalah pemilihan identitas dalam demo pengunjung, bukan
             autentikasi akun produksi. Gunakan data contoh. Tidak ada email atau
             transaksi nyata.
           </p>
