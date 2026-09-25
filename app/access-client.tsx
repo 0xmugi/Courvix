@@ -1,4 +1,5 @@
 "use client";
+import { CourvixSelect } from "@/components/courvix-select";
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { ArrowUpRight, Shield, Users, Check, Copy, LogOut } from "lucide-react";
 import "./access.css";
@@ -22,22 +23,28 @@ export default function AccessPage({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const [attempt, setAttempt] = useState(0);
+  const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState("batam-admin");
   useEffect(() => {
     const c = new AbortController();
-    fetch("/api/access", { signal: c.signal })
+    setLoadError("");
+    fetch("/api/access", { signal: AbortSignal.any([c.signal, AbortSignal.timeout(15000)]), cache: "no-store" })
       .then(async (r) => {
         if (!r.ok)
           throw Error(
             "Demo belum dapat dimuat. Muat ulang untuk mencoba lagi.",
           );
-        setData(await r.json());
+        const payload: any = await r.json();
+        if (!Array.isArray(payload.accounts) || !payload.accounts.length) throw Error("Akun demo belum tersedia. Coba lagi.");
+        setData(payload);
+        setSelected(current => payload.accounts.some((a: any) => a.id === current) ? current : payload.accounts[0].id);
       })
       .catch((e) => {
-        if (!c.signal.aborted) setError(e.message);
+        if (!c.signal.aborted) setLoadError(e.name === "TimeoutError" ? "Koneksi terlalu lama. Silakan coba lagi." : e.message);
       });
     return () => c.abort();
-  }, []);
+  }, [attempt]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (lock.current) return;
@@ -133,7 +140,7 @@ export default function AccessPage({
             <>
               <label>
                 Akun demo
-                <select
+                <CourvixSelect
                   value={selected}
                   onChange={(e) => setSelected(e.target.value)}
                   disabled={!data}
@@ -143,14 +150,14 @@ export default function AccessPage({
                       {a.name} · {a.role}
                     </option>
                   ))}
-                </select>
+                </CourvixSelect>
               </label>
               <div className="access-account">
                 <Shield />
                 <div>
                   <strong>
                     {data?.accounts.find((a: any) => a.id === selected)?.role ||
-                      "Memuat akun…"}
+                      (loadError ? "Akun belum dapat dimuat" : "Memuat akun…")}
                   </strong>
                   <p>
                     {selected === "platform-owner"
@@ -203,11 +210,11 @@ export default function AccessPage({
                   </label>
                   <label>
                     Rencana paket
-                    <select name="plan" defaultValue="Growth">
+                    <CourvixSelect name="plan" defaultValue="Growth">
                       <option>Starter</option>
                       <option>Growth</option>
                       <option>Club Pro</option>
-                    </select>
+                    </CourvixSelect>
                   </label>
                   <div className="access-account">
                     <Check />
@@ -231,6 +238,7 @@ export default function AccessPage({
               )}
             </>
           )}
+          {loadError && <div role="alert"><p className="error">{loadError}</p><button type="button" className="btn" onClick={() => setAttempt(n => n + 1)}>Coba lagi</button></div>}
           {error && (
             <p className="error" role="alert">
               {error}
@@ -266,13 +274,13 @@ export function ClubAccess({ onUpdated }: { onUpdated?: () => void }) {
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
   async function refresh() {
-    const r = await fetch("/api/access");
+    const r = await fetch("/api/access", { signal: AbortSignal.timeout(15000), cache: "no-store" });
     if (!r.ok) throw Error("Pengaturan klub belum dapat dimuat.");
     setData(await r.json());
   }
   useEffect(() => {
     let mounted = true;
-    fetch("/api/access")
+    fetch("/api/access", { signal: AbortSignal.timeout(15000), cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw Error("Pengaturan belum dapat dimuat.");
         const d = await r.json();
@@ -337,11 +345,11 @@ export function ClubAccess({ onUpdated }: { onUpdated?: () => void }) {
         >
           <label>
             Paket
-            <select name="plan" defaultValue="Growth">
+            <CourvixSelect name="plan" defaultValue="Growth">
               <option>Starter</option>
               <option>Growth</option>
               <option>Club Pro</option>
-            </select>
+            </CourvixSelect>
           </label>
           <button disabled={busy || !data} className="btn primary">
             Simulasikan aktivasi subscription
@@ -375,20 +383,20 @@ export function ClubAccess({ onUpdated }: { onUpdated?: () => void }) {
           </label>
           <label>
             Role
-            <select name="role">
+            <CourvixSelect name="role">
               <option>Member</option>
               <option>Coach</option>
-            </select>
+            </CourvixSelect>
           </label>
           <label>
             Tim
-            <select name="team" required>
+            <CourvixSelect name="team" required>
               {data?.teams.map((t: any) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
-            </select>
+            </CourvixSelect>
           </label>
           <button
             className="btn primary"
@@ -473,3 +481,4 @@ export function ClubAccess({ onUpdated }: { onUpdated?: () => void }) {
     </div>
   );
 }
+

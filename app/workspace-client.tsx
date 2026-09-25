@@ -1,4 +1,5 @@
 "use client";
+import { CourvixSelect } from "@/components/courvix-select";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowUpRight,
@@ -563,7 +564,7 @@ export default function Courvix() {
               }}
             />
           </div>
-          <select
+          <CourvixSelect
             aria-label="Filter status"
             value={filter}
             onChange={(e) => {
@@ -583,7 +584,7 @@ export default function Courvix() {
             ].map((s: any) => (
               <option key={s}>{s}</option>
             ))}
-          </select>
+          </CourvixSelect>
           <button className="btn" onClick={() => download(rows, page)}>
             <Download size={16} /> Export
           </button>
@@ -1081,7 +1082,7 @@ export default function Courvix() {
     return (
       <>
         <div className="toolbar">
-          <select
+          <CourvixSelect
             aria-label="Pilih sesi"
             value={s?.id || ""}
             onChange={(e) => {
@@ -1094,7 +1095,7 @@ export default function Courvix() {
                 {s.date} · {s.name}
               </option>
             ))}
-          </select>
+          </CourvixSelect>
           <button
             className="btn"
             onClick={() => download(scope("Attendance"), "attendance")}
@@ -1333,10 +1334,10 @@ export default function Courvix() {
             >
               <label>
                 Tipe fee
-                <select name="type" defaultValue={db.fee.type}>
+                <CourvixSelect name="type" defaultValue={db.fee.type}>
                   <option>Percentage</option>
                   <option>Fixed</option>
-                </select>
+                </CourvixSelect>
               </label>
               {[
                 ["rate", "Persentase (%)"],
@@ -1915,7 +1916,7 @@ export default function Courvix() {
                       maxLength={2000}
                     />
                   ) : type === "team" || type === "member" ? (
-                    <select
+                    <CourvixSelect
                       defaultValue={modal.edit?.[name]}
                       required
                       name={name}
@@ -1925,7 +1926,7 @@ export default function Courvix() {
                           {r.name}
                         </option>
                       ))}
-                    </select>
+                    </CourvixSelect>
                   ) : (
                     <input
                       defaultValue={modal.edit?.[name]}
