@@ -10,9 +10,12 @@ import {
   Contact,
 } from "./marketing-pages";
 import "./marketing.css";
+import "./club-life.css";
+import ClubLife, { ClubLifeTeaser, SportPhoto } from "./club-life";
 const links = [
   ["platform", "Platform"],
   ["sports", "Cabang olahraga"],
+  ["club-life", "Club Life"],
   ["pricing", "Harga"],
   ["custom", "Website klub"],
   ["contact", "Kontak"],
@@ -105,12 +108,7 @@ export default function Marketing({ page = "home" }: { page?: string }) {
                 </div>
               </div>
               <div className="cv-hero-image">
-                <img
-                  src="/courvix-track.webp"
-                  alt="Atlet berlari di lintasan olahraga berwarna oranye"
-                  width="1536"
-                  height="1024"
-                />
+                <SportPhoto kind="match" eager />
                 <span className="cv-photo-label">
                   BUILT FOR THE
                   <br />
@@ -138,8 +136,11 @@ export default function Marketing({ page = "home" }: { page?: string }) {
                 </span>
               </div>
             </div>
+            <ClubLifeTeaser />
             <HomeSections />
           </>
+        ) : page === "club-life" ? (
+          <ClubLife />
         ) : page === "platform" ? (
           <Platform />
         ) : page === "sports" ? (

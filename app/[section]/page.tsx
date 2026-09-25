@@ -2,6 +2,7 @@ import Marketing from "../marketing";
 import { notFound } from "next/navigation";
 const pages: Record<string, string> = {
   platform: "Platform",
+  "club-life": "Club Life — Inspirasi & Budaya Olahraga",
   sports: "Cabang Olahraga",
   pricing: "Harga",
   custom: "Website & Sistem Klub",

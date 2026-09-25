@@ -10,6 +10,7 @@ import {
   Globe,
   Shield,
 } from "lucide-react";
+import { FieldFeature } from "./club-life";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { money, feeFor, seed, type DB } from "@/lib/courvix";
 export const modules = [
@@ -307,6 +308,7 @@ export function Platform() {
         accent="KLUB TERKELOLA."
         text="Enam fondasi untuk operasional klub. Satu pengalaman yang menghubungkan pengurus, pelatih, dan member."
       />
+      <FieldFeature />
       <section className="cv-section cv-modulegrid">
         {modules.map((m, i) => (
           <article className="cv-module" key={m.title}>
@@ -469,6 +471,7 @@ export function Sports() {
         accent="INI RUANG KLUBMU."
         text="Setiap olahraga punya ritme sendiri. Kelola fondasi yang sama, lalu susun kelompok, program, dan jadwal sesuai kebutuhan."
       />
+      <FieldFeature variant="sports" />
       <section className="cv-section">
         <Tabs value={filter} onValueChange={setFilter} className="cv-tabs">
           <TabsList>
