@@ -6,16 +6,19 @@ export type Identity = {
   role: "Administrator" | "Admin" | "Coach" | "Member";
   club: string;
   member?: string;
+  coach?: string;
   team?: string;
 };
 export function visibleRow(key: string, r: any, a: Identity, data?: any) {
+  if (key === "Profiles") return false;
   if (a.role === "Administrator") return true;
   if (r.club !== a.club) return false;
   if (a.role === "Member") {
-    if (["Members", "Invoices", "Attendance"].includes(key))
+    if (["Members", "Invoices", "Payments", "Attendance"].includes(key))
       return r.id === a.member || r.member === a.member;
+    if(key === "Teams")return r.id===a.team;
     if (
-      ["Teams", "Schedule", "Training", "Competitions", "Documents"].includes(
+      ["Schedule", "Training", "Competitions", "Documents"].includes(
         key,
       )
     )
@@ -23,8 +26,9 @@ export function visibleRow(key: string, r: any, a: Identity, data?: any) {
     return ["Announcements", "Membership", "Clubs"].includes(key);
   }
   if (a.role === "Coach") {
+    if(key === "Coaches") return r.id === a.coach;
     if (
-      ["Teams", "Members", "Schedule", "Training", "Attendance"].includes(key)
+      ["Teams", "Members", "Schedule", "Training", "Attendance", "Competitions"].includes(key)
     )
       return (
         r.id === a.team ||
@@ -57,7 +61,7 @@ export function scoped(data: any, a: Identity) {
   };
 }
 export function mergeScoped(old: any, incoming: any, a: Identity) {
-  if (a.role === "Administrator") return { ...incoming, _access: old._access };
+  if (a.role === "Administrator") return { ...incoming, records:{...incoming.records,Profiles:old.records.Profiles,Payments:old.records.Payments}, _access: old._access };
   if (canonical(incoming.fee) !== canonical(old.fee))
     throw Error("Hanya administrator platform yang dapat mengubah fee.");
   const allowed =
@@ -102,7 +106,7 @@ export function mergeScoped(old: any, incoming: any, a: Identity) {
       for (const r of rows) {
         const prev = current.records[key].find((x: any) => x.id === r.id);
         if (!prev) throw Error("Tagihan tidak tersedia.");
-        const editable = ["status", "method", "fee", "gateway", "reference"];
+        const editable = ["status", "method", "fee", "gateway", "reference", "feePayer"];
         for (const k of new Set([...Object.keys(prev), ...Object.keys(r)]))
           if (
             !editable.includes(k) &&

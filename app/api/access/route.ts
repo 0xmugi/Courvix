@@ -9,7 +9,7 @@ import {
 } from "@/lib/demo-access";
 import type { Identity } from "@/lib/access-policy";
 export const dynamic = "force-dynamic";
-const plans = ["Starter", "Growth", "Club Pro"];
+const plans = ["Starter", "Club Pro"];
 const text = (v: unknown, max = 150) =>
   typeof v === "string" ? v.trim().slice(0, max) : "";
 export async function GET(req: Request) {
@@ -222,7 +222,9 @@ export async function POST(req: Request) {
             date: new Date().toISOString().slice(0, 10),
             amount: 0,
           });
-      } else
+      } else {
+        signed.coach = signed.id;
+        d.records.Teams.find((t:any)=>t.id===i.team).coachId = signed.id;
         d.records.Coaches.push({
           id: signed.id,
           club: i.club,
@@ -232,6 +234,7 @@ export async function POST(req: Request) {
           status: "Active",
           description: "Coach undangan",
         });
+      }
       access.accounts.push(signed);
       i.used = true;
     } else if (b.action === "subscribe") {

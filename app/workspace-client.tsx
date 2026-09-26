@@ -1,4 +1,7 @@
 "use client";
+import { PersonProfile } from "./person-profile";
+import {ModuleIntro,OperationDetails,TransactionDetails} from "./club-operations";
+import "./professional.css";
 import { CourvixSelect } from "@/components/courvix-select";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -58,12 +61,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast, Toaster } from "sonner";
-import { seed, clubs, money, feeFor, type DB, type Row } from "@/lib/courvix";
+import { seed, clubs, money, feeFor, clubNet, type DB, type Row } from "@/lib/courvix";
 import Landing from "./landing";
 import { ClubAccess, accessAction } from "./access-client";
 import type { Identity } from "@/lib/access-policy";
 import { TeamsView, CalendarView, MemberDetails } from "./operations";
 const icons: any = {
+  Profile: Users,
   Dashboard: LayoutDashboard,
   Members: Users,
   Teams: Layers,
@@ -108,6 +112,7 @@ const roleNav: Record<string, string[]> = {
     "Support",
   ],
   Coach: [
+    "Profile",
     "Dashboard",
     "Members",
     "Teams",
@@ -119,6 +124,7 @@ const roleNav: Record<string, string[]> = {
     "Documents",
   ],
   Member: [
+    "Profile",
     "Dashboard",
     "Schedule",
     "Attendance",
@@ -241,14 +247,14 @@ export default function Courvix() {
     return () => controller.abort();
   }, []);
   const scope = (requested: string) => {
-    const key = requested === "Payments" ? "Invoices" : requested;
+    const key = requested;
     const ownMember = db.records.Members.find(
       (m) => m.id === (identity?.member || club + "-1"),
     );
     return (db.records[key] || []).filter((r) => {
       if (role !== "Administrator" && r.club !== club) return false;
       if (role === "Member") {
-        if (["Members", "Invoices", "Attendance"].includes(key))
+        if (["Members", "Invoices", "Payments", "Attendance"].includes(key))
           return (
             r.id === (identity?.member || club + "-1") ||
             r.member === (identity?.member || club + "-1")
@@ -274,6 +280,7 @@ export default function Courvix() {
     teams = scope("Teams"),
     paid = invoices.filter((x) => x.status === "Paid"),
     gross = paid.reduce((s, r) => s + r.amount, 0),
+    netRevenue = paid.reduce((s,r)=>s+clubNet(r),0),
     fees = paid.reduce((s, r) => s + r.fee, 0),
     outstanding = invoices.filter((x) =>
       ["Pending", "Expired", "Failed"].includes(x.status),
@@ -348,6 +355,7 @@ export default function Courvix() {
       setBusy(false);
     }
   }
+  async function refreshWorkspace(){const r=await fetch("/api/demo-state",{signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error("Muat ulang workspace untuk menyinkronkan perubahan.");const p:any=await r.json();setDb(p.data);revision.current=p.revision;}
   function download(rows: Row[], name: string) {
     try {
       if (!rows.length) throw Error("Tidak ada data untuk diekspor.");
@@ -407,65 +415,18 @@ export default function Courvix() {
     ).catch(() => {});
     return () => c.abort();
   }, [role]);
-  const fields = (mod: string): string[][] =>
-    mod === "Members"
-      ? [
-          ["name", "Nama lengkap"],
-          ["email", "Email"],
-          ["team", "Tim", "team"],
-        ]
-      : mod === "Invoices"
-        ? [
-            ["member", "Anggota", "member"],
-            ["amount", "Nominal (Rp)", "number"],
-            ["description", "Deskripsi"],
-            ["due", "Jatuh tempo", "date"],
-          ]
-        : mod === "Schedule"
-          ? [
-              ["name", "Judul sesi"],
-              ["team", "Tim", "team"],
-              ["date", "Tanggal", "date"],
-              ["time", "Waktu", "time"],
-              ["venue", "Lokasi"],
-            ]
-          : mod === "Teams"
-            ? [
-                ["name", "Nama tim"],
-                ["sport", "Olahraga"],
-                ["coach", "Coach"],
-              ]
-            : mod === "Coaches"
-              ? [
-                  ["name", "Nama"],
-                  ["email", "Email"],
-                  ["description", "Spesialisasi"],
-                ]
-              : mod === "Membership" || mod === "Expenses"
-                ? [
-                    ["name", "Nama / keterangan"],
-                    ["amount", "Nominal (Rp)", "number"],
-                    ["description", "Periode / kategori"],
-                  ]
-                : mod === "Competitions"
-                  ? [
-                      ["name", "Nama kompetisi"],
-                      ["date", "Tanggal", "date"],
-                      ["venue", "Lokasi"],
-                    ]
-                  : mod === "Projects"
-                    ? [
-                        ["name", "Organisasi / proyek"],
-                        ["email", "Email"],
-                        ["phone", "Telepon"],
-                        ["sport", "Olahraga"],
-                        ["budget", "Perkiraan anggaran"],
-                        ["description", "Kebutuhan sistem", "textarea"],
-                      ]
-                    : [
-                        ["name", "Judul"],
-                        ["description", "Isi / catatan", "textarea"],
-                      ];
+  const fields = (mod:string):string[][] => ({
+ Members:[["name","Nama lengkap"],["email","Email","email"],["team","Tim","team"],["membership","Paket keanggotaan","membership"]],
+ Coaches:[["name","Nama lengkap"],["email","Email","email"],["description","Spesialisasi"]],
+ Teams:[["name","Nama tim"],["sport","Cabang olahraga"],["coachId","Coach penanggung jawab","coach"]],
+ Schedule:[["name","Judul sesi"],["team","Tim","team"],["coachId","Coach penanggung jawab","coach"],["date","Tanggal","date"],["time","Mulai","time"],["endTime","Selesai","time"],["venue","Lokasi"],["description","Agenda sesi","textarea"],["status","Status sesi","status"]],
+ Training:[["name","Nama program"],["session","Sesi latihan","session"],["objective","Tujuan latihan"],["duration","Durasi (menit)","number"],["description","Rangkaian drill","textarea"],["evaluation","Evaluasi / catatan","textarea"],["status","Status program","status"]],
+ Competitions:[["name","Nama kompetisi"],["team","Tim peserta","team"],["coachId","Coach pendamping","coach"],["category","Kategori / kelompok umur"],["organizer","Penyelenggara"],["date","Tanggal pertandingan","date"],["deadline","Tenggat daftar","date"],["venue","Lokasi"],["result","Hasil / target","textarea"],["status","Status kompetisi","status"]],
+ Membership:[["name","Nama paket"],["amount","Iuran bulanan (Rp)","number"],["benefits","Manfaat / jumlah sesi","textarea"],["description","Ketentuan keanggotaan","textarea"],["status","Status paket","status"]],
+ Invoices:[["member","Member","member"],["amount","Iuran (Rp), tanpa fee","number"],["period","Periode","month"],["description","Deskripsi"],["due","Jatuh tempo","date"]],
+ Expenses:[["name","Keterangan"],["amount","Nominal (Rp)","number"],["description","Kategori"],["date","Tanggal","date"]],
+ Projects:[["name","Nama proyek"],["email","Email","email"],["description","Kebutuhan","textarea"]]
+ }[mod] || [["name","Judul"],["description","Isi / catatan","textarea"]]);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.currentTarget));
@@ -484,13 +445,13 @@ export default function Courvix() {
         id: modal.edit?.id || crypto.randomUUID(),
         club,
         status:
-          modal.edit?.status ||
+          f.status || modal.edit?.status ||
           (mod === "Invoices"
             ? "Pending"
             : mod === "Projects"
               ? "Lead"
-              : "Active"),
-        date: f.date || "2026-09-23",
+              : mod === "Schedule" ? "Scheduled" : mod === "Competitions" ? "Registration" : "Active"),
+        date: f.date || modal.edit?.date || new Date().toISOString().slice(0,10),
       };
       if ("amount" in f) {
         row.amount = Number(f.amount);
@@ -506,8 +467,14 @@ export default function Courvix() {
         )
           throw Error("Email sudah terdaftar di klub.");
         row.amount =
-          d.records.Membership.find((p) => p.club === club)?.amount || 0;
+          d.records.Membership.find((p) => p.club === club && p.id===f.membership)?.amount || 0;
       }
+      if(mod === "Members"&&!f.membership)throw Error("Buat paket Membership sebelum menambahkan member.");
+      if(mod === "Teams"&&!f.coachId)throw Error("Tambahkan coach sebelum membuat tim.");
+      if(mod === "Schedule"&&(!f.team||!f.coachId))throw Error("Pilih tim dan coach sesi.");
+      if(mod === "Training"){const session=d.records.Schedule.find(s=>s.id===f.session&&s.club===club);if(!session)throw Error("Pilih sesi yang valid.");row.team=session.team;row.coachId=session.coachId;}
+      if(mod === "Teams")row.coach=d.records.Coaches.find(c=>c.id===f.coachId)?.name;
+      if(mod === "Schedule" && String(f.endTime)<=String(f.time))throw Error("Waktu selesai harus setelah waktu mulai.");
       if (
         mod === "Schedule" &&
         d.records.Schedule.some(
@@ -516,7 +483,8 @@ export default function Courvix() {
             s.club === club &&
             s.date === f.date &&
             s.time === f.time &&
-            (s.venue === f.venue || s.team === f.team),
+            String(f.time)<String(s.endTime||s.time) && String(f.endTime)>String(s.time) &&
+            (s.venue === f.venue || s.team === f.team || s.coachId === f.coachId),
         )
       )
         throw Error("Jadwal bentrok dengan sesi yang sudah ada.");
@@ -612,7 +580,7 @@ export default function Courvix() {
                       ? "Tim"
                       : "Detail"}
                 </TableHead>
-                <TableHead>{financial ? "Jatuh tempo" : "Tanggal"}</TableHead>
+                <TableHead>{page==="Invoices" ? "Jatuh tempo" : "Tanggal"}</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Tindakan</TableHead>
               </TableRow>
@@ -667,7 +635,7 @@ export default function Courvix() {
                       className="text-btn"
                       onClick={() =>
                         open({
-                          type: financial ? "payment" : "detail",
+                          type: page === "Invoices" ? "payment" : "detail",
                           row: r,
                           module: page,
                         })
@@ -1078,7 +1046,9 @@ export default function Courvix() {
   }
   function Attendance() {
     const s = sessions.find((s) => s.id === session) || sessions[0];
-    const roster = members.filter((m) => m.team === s?.team);
+    const roster = members.filter((m) => m.team === s?.team && m.status==="Active");
+    const sessionTeam=teams.find(t=>t.id===s?.team);
+    const coach=scope("Coaches").find(c=>c.id===s?.coachId);
     return (
       <>
         <div className="toolbar">
@@ -1098,7 +1068,7 @@ export default function Courvix() {
           </CourvixSelect>
           <button
             className="btn"
-            onClick={() => download(scope("Attendance"), "attendance")}
+            onClick={() => download(scope("Attendance").filter(a=>a.session===s?.id), "attendance")}
           >
             <Download size={16} />
             Export
@@ -1106,9 +1076,10 @@ export default function Courvix() {
         </div>
         <div className="panel">
           <div className="panel-title">
-            <h2>Session attendance</h2>
+            <h2>{s?.name || "Belum ada jadwal latihan"}</h2>
             <Badge value="Demo" />
           </div>
+          <div className="operation-context"><p><b>{sessionTeam?.name || "Pilih sesi"}</b> · Coach: {coach?.name || sessionTeam?.coach || "Belum ditugaskan"}</p><p>{s?.date} · {s?.time}–{s?.endTime} WIB · {s?.venue}</p><div className="session-summary">{["Present","Late","Absent","Excused"].map(status=><span key={status}>{status}: {scope("Attendance").filter(a=>a.session===s?.id&&a.status===status).length}</span>)}<span>Belum dicatat: {roster.filter(m=>!scope("Attendance").some(a=>a.session===s?.id&&a.member===m.id)).length}</span></div></div>
           {role === "Member" ? (
             <div className="empty">
               <ClipboardCheck />
@@ -1144,7 +1115,7 @@ export default function Courvix() {
                           {["Present", "Late", "Absent", "Excused"].map(
                             (status) => (
                               <button
-                                disabled={busy}
+                                disabled={busy || s?.status === "Cancelled"}
                                 className={
                                   "btn small " +
                                   (db.records.Attendance.find(
@@ -1163,13 +1134,14 @@ export default function Courvix() {
                                           a.member === m.id &&
                                           a.session === s.id,
                                       );
-                                      if (a) a.status = status;
+                                      if (a) {a.status = status;a.recordedAt=new Date().toISOString();a.recordedBy=identity?.name;}
                                       else
                                         d.records.Attendance.push({
                                           id: crypto.randomUUID(),
                                           club,
                                           member: m.id,
                                           session: s.id,
+                                          team:s.team,coachId:s.coachId,recordedAt:new Date().toISOString(),recordedBy:identity?.name,
                                           name: m.name,
                                           status,
                                           date: s.date,
@@ -1225,7 +1197,7 @@ export default function Courvix() {
             ["Gross payments", gross],
             ["Processing costs", fees + gateway],
             ["Expenses", expenses],
-            ["Net cash flow", gross - fees - gateway - expenses],
+            ["Net cash flow", netRevenue - expenses],
           ].map(([k, v]) => (
             <div className="metric" key={k}>
               <div className="metric-label">{k}</div>
@@ -1264,7 +1236,7 @@ export default function Courvix() {
             ))}
             <p>
               <span>Gross − platform fee − gateway − expenses</span>
-              <b>{money(gross - fees - gateway - expenses)}</b>
+              <b>{money(netRevenue - expenses)}</b>
             </p>
           </div>
         </div>
@@ -1303,71 +1275,13 @@ export default function Courvix() {
             dihitung ulang.
           </p>
           {role === "Administrator" ? (
-            <form
-              className="form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                mutate((d) => {
-                  const fee = {
-                    type: String(f.get("type")),
-                    rate: Number(f.get("rate")),
-                    min: Number(f.get("min")),
-                    max: Number(f.get("max")),
-                    flat: Number(f.get("flat")),
-                    gateway: Number(f.get("gateway")),
-                  };
-                  if (
-                    fee.max < fee.min ||
-                    Object.values(fee).some(
-                      (v) =>
-                        typeof v === "number" && (!Number.isFinite(v) || v < 0),
-                    )
-                  )
-                    throw Error(
-                      "Konfigurasi tidak valid. Maksimum harus lebih besar dari minimum.",
-                    );
-                  d.fee = fee;
-                  return d;
-                }, "Kebijakan fee diperbarui");
-              }}
-            >
-              <label>
-                Tipe fee
-                <CourvixSelect name="type" defaultValue={db.fee.type}>
-                  <option>Percentage</option>
-                  <option>Fixed</option>
-                </CourvixSelect>
-              </label>
-              {[
-                ["rate", "Persentase (%)"],
-                ["min", "Minimum (Rp)"],
-                ["max", "Maksimum (Rp)"],
-                ["flat", "Flat fee (Rp)"],
-                ["gateway", "Gateway simulasi VA (Rp)"],
-              ].map(([k, l]) => (
-                <label key={k}>
-                  {l}
-                  <input
-                    required
-                    name={k}
-                    type="number"
-                    min="0"
-                    step={k === "rate" ? ".1" : "1"}
-                    defaultValue={(db.fee as any)[k]}
-                  />
-                </label>
-              ))}
-              <button disabled={busy} className="btn primary">
-                Simpan kebijakan
-              </button>
-            </form>
+            <div className="breakdown"><p><span>Fee per pembayaran member</span><b>Rp10.000 (tetap)</b></p><p><span>Dibayar oleh</span><b>Member, di luar iuran</b></p><p><span>Langganan klub</span><b>Starter Rp250.000 · Club Pro Rp500.000 / bulan</b></p></div>
           ) : (
             <>
               <div className="breakdown">
                 <p>
                   <span>Subscription demo</span>
-                  <b>Club · Rp399.000 / bulan</b>
+                  <b>Starter Rp250.000 / Club Pro Rp500.000 per bulan</b>
                 </p>
                 <p>
                   <span>Platform fee</span>
@@ -1492,12 +1406,13 @@ export default function Courvix() {
       <>
         <div className="invoice-total">
           <small>TAGIHAN MEMBERSHIP</small>
-          <h2>{money(r.amount)}</h2>
+          <h2>{money(r.amount + (r.status==="Paid" ? (r.feePayer==="member"?r.fee+r.gateway:0) : feeFor(r.amount,db.fee)+db.fee.gateway))}</h2>
           <Badge value={r.status} />
         </div>
         <div className="breakdown">
           {[
             ["Member", r.name],
+            ["Iuran klub",money(r.amount)],
             ["Invoice", r.id.slice(0, 16)],
             [
               "Fee Courvix",
@@ -1509,11 +1424,7 @@ export default function Courvix() {
             ],
             [
               "Penerimaan klub",
-              money(
-                r.amount -
-                  (r.status === "Paid" ? r.fee : feeFor(r.amount, db.fee)) -
-                  (r.status === "Paid" ? r.gateway : db.fee.gateway),
-              ),
+              money(r.status==="Paid"?clubNet(r):r.amount),
             ],
           ].map(([k, v]) => (
             <p key={k}>
@@ -1523,7 +1434,7 @@ export default function Courvix() {
           ))}
         </div>
         <p className="hint">
-          Simulasi. Tidak ada uang dipindahkan. Biaya ditanggung klub.
+          Simulasi. Tidak ada uang dipindahkan. Fee Rp10.000 ditambahkan ke pembayaran member. Biaya gateway demo Rp0.
         </p>
         {!["Paid", "Refunded"].includes(r.status) ? (
           <div className="actions">
@@ -1536,6 +1447,7 @@ export default function Courvix() {
                   if (p.status === "Paid") return d;
                   p.status = "Paid";
                   p.fee = feeFor(p.amount, d.fee);
+                  p.feePayer="member";
                   p.gateway = d.fee.gateway;
                   p.method = "Virtual Account";
                   p.reference = "SIM-" + crypto.randomUUID();
@@ -1771,7 +1683,8 @@ export default function Courvix() {
                       </p>
                     </div>
                   )}
-                  {page === "Dashboard" ? (
+                  <ModuleIntro page={page}/>
+                  {page === "Profile" ? (()=>{const kind=role==="Coach"?"Coaches":"Members";const person=db.records[kind].find(r=>r.id===(role==="Coach"?identity?.coach:identity?.member));return person?<PersonProfile kind={kind} person={person} onUpdated={refreshWorkspace}/>:<div className="empty">Profil belum terhubung. Hubungi admin klub.</div>})() : page === "Dashboard" ? (
                     Dashboard()
                   ) : page === "Teams" ? (
                     <TeamsView
@@ -1907,21 +1820,21 @@ export default function Courvix() {
               {fields(modal.module).map(([name, label, type]) => (
                 <label key={name}>
                   {label}
-                  <span className="orange"> *</span>
-                  {type === "textarea" ? (
+                  {!["evaluation","result"].includes(name)&&<span className="orange"> *</span>}
+                  {type === "status" ? <CourvixSelect name="status" defaultValue={modal.edit?.status}>{(modal.module==="Schedule"?["Scheduled","Completed","Cancelled"]:modal.module==="Competitions"?["Registration","Registered","Ongoing","Completed","Cancelled"]:modal.module==="Membership"?["Active","Inactive"]:["Active","Completed","Paused"]).map(status=><option key={status}>{status}</option>)}</CourvixSelect> : type === "textarea" ? (
                     <textarea
                       defaultValue={modal.edit?.[name]}
-                      required
+                      required={!["evaluation","result"].includes(name)}
                       name={name}
                       maxLength={2000}
                     />
-                  ) : type === "team" || type === "member" ? (
+                  ) : ["team","member","coach","session","membership"].includes(type) ? (
                     <CourvixSelect
                       defaultValue={modal.edit?.[name]}
-                      required
+                      required={!["evaluation","result"].includes(name)}
                       name={name}
                     >
-                      {(type === "team" ? teams : members).map((r) => (
+                      {(type === "team" ? teams : type==="coach"?scope("Coaches"):type==="session"?sessions:type==="membership"?scope("Membership"):members).map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
                         </option>
@@ -1930,7 +1843,7 @@ export default function Courvix() {
                   ) : (
                     <input
                       defaultValue={modal.edit?.[name]}
-                      required
+                      required={!["evaluation","result"].includes(name)}
                       name={name}
                       type={type || (name === "email" ? "email" : "text")}
                       min={type === "number" ? 1 : undefined}
@@ -2011,9 +1924,9 @@ export default function Courvix() {
           )}
           {modal?.type === "detail" && (
             <>
-              {modal.module === "Members" ? (
+              {modal.module === "Payments" ? <TransactionDetails row={modal.row}/> : ["Teams","Schedule","Training","Competitions","Membership"].includes(modal.module) ? <OperationDetails module={modal.module} row={modal.row} db={db} busy={busy} canEdit={admin} onOpen={(module,row)=>open({type:"detail",module,row})} onAttendance={id=>{setSession(id);setModal(null);go("Attendance")}} onGenerate={(period,due)=>mutate(d=>{if(modal.row.status!=="Active")throw Error("Aktifkan paket sebelum menerbitkan tagihan.");let count=0;for(const m of d.records.Members.filter(m=>m.club===club&&m.membership===modal.row.id&&m.status==="Active")){if(d.records.Invoices.some(i=>i.member===m.id&&i.period===period&&i.status!=="Cancelled"))continue;d.records.Invoices.push({id:crypto.randomUUID(),club,member:m.id,name:m.name,amount:modal.row.amount,membership:modal.row.id,period,due,description:modal.row.name+" · "+period,status:"Pending",fee:0,gateway:0,date:new Date().toISOString().slice(0,10)});count++}if(!count)throw Error("Semua member aktif sudah memiliki invoice periode ini.");return d},"Invoice membership diterbitkan")}/> : modal.module === "Members" ? (
                 <MemberDetails
-                  member={modal.row}
+                  member={{...modal.row,membershipName:db.records.Membership.find(p=>p.id===modal.row.membership)?.name}}
                   team={teams.find((t) => t.id === modal.row.team)}
                   attendance={scope("Attendance").filter(
                     (a) => a.member === modal.row.id,
@@ -2038,6 +1951,7 @@ export default function Courvix() {
                     ))}
                 </div>
               )}
+              {admin && ["Members","Coaches"].includes(modal.module) && <PersonProfile kind={modal.module} person={modal.row} onUpdated={refreshWorkspace}/>}
               {admin &&
                 [
                   "Members",

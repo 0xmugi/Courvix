@@ -11,6 +11,7 @@ import {
 } from "./marketing-pages";
 import "./marketing.css";
 import "./club-life.css";
+import "./professional.css";
 import ClubLife, { ClubLifeTeaser, SportPhoto } from "./club-life";
 const links = [
   ["platform", "Platform"],

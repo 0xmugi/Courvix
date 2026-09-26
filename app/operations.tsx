@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import {
   Users,
   ArrowUpRight,
@@ -95,12 +96,17 @@ export function CalendarView({
   open: (r: Row) => void;
   canEdit: boolean;
 }) {
+  const [month,setMonth]=useState(new Date().toISOString().slice(0,7));
+  const [year,monthNumber]=month.split("-").map(Number);
+  const count=new Date(year,monthNumber,0).getDate();
+  const offset=(new Date(year,monthNumber-1,1).getDay()+6)%7;
+  const shown=sessions.filter(s=>s.date?.startsWith(month)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   return (
     <>
       <div className="toolbar">
         <CalendarDays size={22} />
-        <h2>September 2026</h2>
-        <span className="hint">WIB · demo season</span>
+        <label>Bulan <input aria-label="Bulan jadwal" type="month" value={month} onChange={e=>{if(e.target.value)setMonth(e.target.value)}}/></label>
+        <span className="hint">WIB · {shown.length} sesi terjadwal</span>
         {canEdit && (
           <button className="btn primary" onClick={create}>
             <Plus size={16} />
@@ -121,12 +127,12 @@ export function CalendarView({
               ))}
             </div>
             <div className="calendar-grid">
-              <div className="calendar-cell outside">31</div>
-              {Array.from({ length: 30 }, (_, i) => {
-                const date = "2026-09-" + String(i + 1).padStart(2, "0");
+              {Array.from({length:offset},(_,i)=><div className="calendar-cell outside" key={"before"+i}/>)}
+              {Array.from({ length: count }, (_, i) => {
+                const date = month+"-" + String(i + 1).padStart(2, "0");
                 return (
                   <div
-                    className={"calendar-cell " + (i === 22 ? "current" : "")}
+                    className={"calendar-cell " + (date === new Date().toISOString().slice(0,10) ? "current" : "")}
                     key={date}
                   >
                     <b>{i + 1}</b>
@@ -141,9 +147,9 @@ export function CalendarView({
                   </div>
                 );
               })}
-              {[1, 2, 3, 4].map((d) => (
+              {Array.from({length:(7-(offset+count)%7)%7},(_,i)=>i).map((d) => (
                 <div className="calendar-cell outside" key={d}>
-                  {d}
+                  {" "}
                 </div>
               ))}
             </div>
@@ -151,10 +157,10 @@ export function CalendarView({
         </TabsContent>
         <TabsContent value="agenda">
           <div className="panel agenda">
-            {sessions.map((s) => (
+            {shown.map((s) => (
               <button key={s.id} onClick={() => open(s)}>
                 <span className="date-tile">
-                  <small>SEP</small>
+                  <small>{new Date(s.date+"T12:00:00").toLocaleDateString("id-ID",{month:"short"})}</small>
                   <b>{s.date.slice(-2)}</b>
                 </span>
                 <span>
@@ -168,7 +174,7 @@ export function CalendarView({
                 <ArrowUpRight size={16} />
               </button>
             ))}
-            {!sessions.length && (
+            {!shown.length && (
               <div className="empty">
                 Tidak ada sesi. Buat jadwal pertama untuk klub ini.
               </div>
@@ -210,6 +216,8 @@ export function MemberDetails({
             ["Tim", team?.name || "Belum ditugaskan"],
             ["Status", member.status],
             ["Bergabung", member.date],
+            ["Paket membership", member.membershipName || "Belum dipilih"],
+            ["Iuran bulanan", money(member.amount || 0)],
           ].map(([k, v]) => (
             <p key={k}>
               <span>{k}</span>

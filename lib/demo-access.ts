@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { seed, clubs } from "./courvix";
+import { seed, clubs, FIXED_FEE } from "./courvix";
 import type { Identity } from "./access-policy";
 export type Access = {
   accounts: Identity[];
@@ -84,6 +84,13 @@ export async function readStore(request: Request) {
     plan: "Growth",
     trialEnds: new Date(Date.now() + 14 * 86400000).toISOString(),
   }));
+  data.fee = { ...FIXED_FEE };
+  data.records.Profiles ??= [];
+  data.records.Payments ??= data.records.Invoices.filter((i:any)=>["Paid","Refunded"].includes(i.status)).map((i:any)=>({id:"PAY-"+i.id,club:i.club,member:i.member,invoice:i.id,name:i.name,amount:i.amount,fee:i.fee,gateway:i.gateway,total:i.amount,status:i.status,method:i.method,reference:i.reference,date:i.date,feePayer:"club"}));
+  for (const c of data.records.Clubs) if(c.plan === "Growth") c.plan = "Club Pro";
+  for (const m of data.records.Members) m.membership ??= data.records.Membership.find((p:any)=>p.club===m.club)?.id;
+  for (const t of data.records.Teams) t.coachId ??= data.records.Coaches.find((c:any)=>c.club===t.club && t.coach?.includes(c.name.split(" ")[0]))?.id;
+  for (const s of data.records.Schedule) { s.coachId ??= data.records.Teams.find((t:any)=>t.id===s.team)?.coachId; s.endTime ??= String(Math.min(23,Number(s.time?.slice(0,2)||16)+1)).padStart(2,"0")+":30"; }
   return { data, revision: row?.revision || 0, who, exists: !!row };
 }
 export function account(request: Request, data: any): Identity | null {
@@ -96,6 +103,7 @@ export function account(request: Request, data: any): Identity | null {
   const identity:Identity|undefined=s?data._access.accounts.find((a:Identity)=>a.id===s.account):undefined;
   if(!identity)return null;
   if(identity.role==='Member'){const member=data.records.Members.find((m:any)=>m.id===identity.member&&m.club===identity.club);if(!member)return null;return {...identity,team:member.team};}
+  if(identity.role==='Coach') return {...identity,coach:identity.coach || data.records.Coaches.find((c:any)=>c.club===identity.club && (c.email===identity.email || c.id===identity.club+"-c0"))?.id};
   return identity;
 }
 export async function saveStore(store: Awaited<ReturnType<typeof readStore>>) {

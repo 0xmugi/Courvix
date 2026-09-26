@@ -540,16 +540,7 @@ export function Pricing() {
     Number(count) <= 100000 &&
     /^\d+$/.test(gateway) &&
     Number(gateway) <= Number(amount);
-  const fee = valid
-    ? feeFor(Number(amount), {
-        rate: 0.5,
-        min: 1000,
-        max: 7500,
-        type: "Percentage",
-        flat: 0,
-        gateway: 0,
-      })
-    : 0;
+  const fee = valid ? 10000 : 0;
   return (
     <>
       <Intro
@@ -560,24 +551,8 @@ export function Pricing() {
       />
       <section className="cv-section cv-plans">
         {[
-          [
-            "Starter",
-            "199rb",
-            "Untuk klub yang mulai merapikan administrasi.",
-            "Member & tim|Jadwal & absensi|Invoice & riwayat",
-          ],
-          [
-            "Growth",
-            "399rb",
-            "Untuk akademi dengan operasional yang berkembang.",
-            "Semua cakupan Starter|Pendampingan pengaturan klub|Perencanaan migrasi data",
-          ],
-          [
-            "Club Pro",
-            "699rb",
-            "Untuk kebutuhan operasional yang lebih kompleks.",
-            "Semua cakupan Growth|Pemetaan kebutuhan lanjutan|Pendampingan implementasi",
-          ],
+          ["Starter","250rb","Untuk klub yang mengelola operasional secara mandiri.","Member & profil dokumen|Tim, coach & lisensi|Jadwal, absensi & program latihan|Membership, invoice & payment|Panduan onboarding mandiri"],
+          ["Club Pro","500rb","Untuk klub yang membutuhkan pendampingan pengelolaan.","Semua fitur Starter|Pendampingan setup awal klub|Bantuan penyiapan impor data|Sesi orientasi untuk admin & coach|Prioritas antrean dukungan"],
         ].map(([name, price, desc, items], i) => (
           <article key={name} className={i === 1 ? "featured" : ""}>
             <small>
@@ -597,15 +572,14 @@ export function Pricing() {
                 </li>
               ))}
             </ul>
-            <a href="/contact" className="cv-button">
-              Diskusikan paket <ArrowUpRight size={18} />
+            <a href="/register" className="cv-button">
+              Daftarkan klub <ArrowUpRight size={18} />
             </a>
           </article>
         ))}
       </section>
       <p className="cv-caption">
-        Harga dan cakupan di atas merupakan rancangan demo, bukan penawaran
-        final. Biaya gateway, pajak, dan pekerjaan custom belum termasuk.
+        Langganan dibayar klub setiap bulan, terpisah dari iuran member. Kedua paket memiliki fitur operasional yang sama; Club Pro menambah layanan pendampingan. Aktivasi dan pembayaran di demo masih simulasi. Website custom dihitung terpisah.
       </p>
       <section className="cv-section cv-orange cv-split" id="simulator">
         <div>
@@ -616,13 +590,10 @@ export function Pricing() {
             <span className="cv-white">JELAS HITUNGANNYA.</span>
           </h2>
           <p>
-            Model demo: <strong>0,5% per pembayaran berhasil</strong>, minimum
-            Rp1.000 dan maksimum Rp7.500. Fee dibatasi sebesar nilai pembayaran.
+            <strong>Rp10.000 per pembayaran member yang berhasil</strong>, berapa pun iuran bulanan klub. Tidak ada persentase atau minimum–maksimum.
           </p>
           <p>
-            Simulasi ini mengasumsikan fee ditanggung klub dan satu pembayaran
-            per member setiap bulan. Biaya gateway diisi sesuai penyedia yang
-            nantinya dipilih.
+            Fee ditambahkan ke pembayaran member, bukan dipotong dari iuran klub. Iuran Rp350.000 menjadi Rp360.000 sebelum biaya gateway. Satu pembayaran sukses dikenai satu fee.
           </p>
         </div>
         <div className="cv-calculator">
@@ -665,7 +636,7 @@ export function Pricing() {
                 <strong>{money(fee)}</strong>
               </div>
               <div className="cv-minirow">
-                <span>Total iuran bruto</span>
+                <span>Total iuran untuk klub</span>
                 <strong>{money(Number(amount) * Number(count))}</strong>
               </div>
               <div className="cv-minirow">
@@ -673,20 +644,19 @@ export function Pricing() {
                 <strong>{money(fee * Number(count))}</strong>
               </div>
               <div className="cv-minirow">
-                <span>Total biaya gateway</span>
-                <strong>{money(Number(gateway) * Number(count))}</strong>
+                <span>Total dibayar per member</span>
+                <strong>{money(Number(amount)+fee+Number(gateway))}</strong>
               </div>
               <div className="cv-calc-total">
                 <span>Estimasi penerimaan klub*</span>
                 <strong>
                   {money(
-                    (Number(amount) - fee - Number(gateway)) * Number(count),
+                    Number(amount) * Number(count),
                   )}
                 </strong>
               </div>
               <small>
-                *Sebelum langganan, pajak, refund, dan biaya lainnya. Jika total
-                fee melebihi iuran, selisih menjadi biaya klub.
+                *Penerimaan iuran sebelum langganan klub, pajak, dan refund. Biaya gateway terpisah; angka simulator bukan tarif resmi.
               </small>
             </div>
           ) : (
@@ -714,7 +684,7 @@ export function Pricing() {
             ],
             [
               "Apakah semua klub harus punya iuran yang sama?",
-              "Tidak. Nominal iuran mengikuti program klub. Persentase dengan batas minimum dan maksimum membuat perhitungannya konsisten untuk nominal yang berbeda.",
+              "Tidak. Nominal iuran mengikuti program klub. Fee Courvix tetap Rp10.000 setiap pembayaran berhasil, walaupun iuran tiap klub berbeda.",
             ],
             [
               "Kapan fee dihitung?",

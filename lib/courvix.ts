@@ -32,15 +32,11 @@ export const clubs = [
     sport: "Badminton",
   },
 ];
-export const feeFor = (amount: number, f: Fee) =>
-  Math.min(
-    amount,
-    f.max,
-    Math.max(
-      f.min,
-      Math.round(f.type === "Fixed" ? f.flat : (amount * f.rate) / 100),
-    ),
-  );
+export const PLATFORM_FEE = 10000;
+export const CLUB_PLANS = [{name:"Starter",amount:250000},{name:"Club Pro",amount:500000}];
+export const FIXED_FEE: Fee = {rate:0,min:10000,max:10000,flat:10000,type:"Fixed",gateway:0};
+export const feeFor = (_amount: number, _f?: Fee) => PLATFORM_FEE;
+export const clubNet = (r: Row) => r.amount - (r.feePayer === "member" ? 0 : (r.fee || 0) + (r.gateway || 0));
 export function seed(): DB {
   const names = [
     "Gilang Pratama",
@@ -217,14 +213,7 @@ export function seed(): DB {
       "Audit logs": [],
       Support: [],
     },
-    fee: {
-      rate: 0.5,
-      min: 1000,
-      max: 7500,
-      flat: 2000,
-      type: "Percentage",
-      gateway: 4000,
-    },
+    fee: { ...FIXED_FEE },
     websites: {
       batam: {
         title: "Batam Basketball Club",

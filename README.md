@@ -86,3 +86,12 @@ Sessions use opaque random HttpOnly cookies (Secure on HTTPS), expire after 24 h
 Run `COURVIX_TEST_URL=http://localhost:5181 node tests/access-smoke.mjs` against a local preview for onboarding and access regression checks. On PowerShell set `$env:COURVIX_TEST_URL` separately. Tests create example clubs only in the local preview database. Legacy browser-local demo snapshots are no longer used for authenticated workspaces.
 
 Public anonymous visitors receive an opaque HttpOnly guest workspace cookie (30 days). Their demo state is independent per browser; signed-in Sites viewers continue to use their viewer-scoped workspace. A guest identity is a bearer capability for a demo sandbox, not verified user authentication. Clearing browser cookies starts a new sandbox. Invitations can be explored within the same visitor sandbox; sharing between real users is not implemented.
+
+
+### Club operations and pricing update
+- Subscription assumption: Starter IDR 250,000/month; Club Pro IDR 500,000/month with assisted onboarding/support. Both expose all demo operational modules.
+- New successful member payments add IDR 10,000 to the club dues. Gateway is IDR 0 in the demo, not a provider quote. Historical paid amounts remain unchanged.
+- Membership packages belong to clubs and generate one invoice per member/period. Payments is an immutable server-created transaction ledger.
+- Member/coach profile data is separate from general roster responses. Profile documents are authenticated downloads in D1 `profile_files` (migration 0001); only the subject and their club admin can access. PDF/JPEG/PNG up to 2 MB, 12 files per profile. Use dummy documents only: the identity picker is a demo, not production authentication.
+- Schedule includes a team, coach, date/time range and venue. Attendance validates the session roster; Training references a schedule; Competitions tracks team, coach, category, organizer, registration deadline and result.
+- Verification: `node tests/professional-smoke.mjs` checks profiles/documents, denied cross-user access, roster mismatch, duplicate billing, authoritative fees, and ledger immutability. Apply `drizzle/0001_profile_files.sql` to local D1 before running this test.

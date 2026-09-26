@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { seed, feeFor, type DB } from "@/lib/courvix";
+import { seed, feeFor, FIXED_FEE, type DB } from "@/lib/courvix";
 import { z } from "zod";
 import { readStore, account, owner as accessOwner } from "@/lib/demo-access";
 import { scoped, mergeScoped } from "@/lib/access-policy";
@@ -129,6 +129,9 @@ export async function PUT(request: Request) {
     } catch (e) {
       return fail(e instanceof Error ? e.message : "Akses ditolak.", 403);
     }
+    data.fee = {...FIXED_FEE};
+    data.records.Profiles=store.data.records.Profiles;
+    data.records.Payments=structuredClone(store.data.records.Payments);
     // Identity, club subscriptions and invitation state can only change via /api/access.
     (data as any)._access = store.data._access;
     data.records.Clubs = store.data.records.Clubs;
@@ -164,6 +167,18 @@ export async function PUT(request: Request) {
         )
           return fail("Member harus berada di klub yang sama.", 422);
       }
+    for(const key of ["Teams","Schedule","Competitions"]) for(const row of data.records[key]||[]) {
+      if(row.coachId && !data.records.Coaches.some(c=>c.id===row.coachId&&c.club===row.club))return fail("Coach harus berasal dari klub yang sama.",422);
+      if(row.team && !data.records.Teams.some(t=>t.id===row.team&&t.club===row.club))return fail("Tim tidak tersedia.",422);
+    }
+    for(const row of data.records.Schedule){const prev=old.records.Schedule.find(s=>s.id===row.id);if(JSON.stringify(prev)===JSON.stringify(row))continue;if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||!/^\d{2}:\d{2}$/.test(row.time)||!/^\d{2}:\d{2}$/.test(row.endTime)||!row.team||!row.coachId||!row.venue)return fail("Lengkapi tanggal, waktu, tim, coach, dan lokasi sesi.",422);if(data.records.Schedule.some(s=>s.id!==row.id&&s.club===row.club&&s.date===row.date&&row.time<(s.endTime||s.time)&&row.endTime>s.time&&(s.team===row.team||s.coachId===row.coachId||s.venue===row.venue)))return fail("Jadwal bentrok: tim, coach, atau lokasi sedang digunakan.",409);}
+    for(const m of data.records.Members)if(m.membership&&!data.records.Membership.some(p=>p.id===m.membership&&p.club===m.club))return fail("Paket membership tidak sesuai klub.",422);
+    for(const p of data.records.Membership)if(!Number.isSafeInteger(p.amount)||p.amount<=0)return fail("Harga paket harus rupiah positif.",422);
+    for(const row of data.records.Schedule){if(row.endTime && row.endTime<=row.time)return fail("Waktu selesai harus setelah mulai.",422);}
+    for(const row of data.records.Training){if(row.session){const session=data.records.Schedule.find(s=>s.id===row.session&&s.club===row.club);if(!session||row.team!==session.team)return fail("Program latihan harus sesuai sesi dan tim.",422);}}
+    const attendanceKeys=new Set<string>();
+    for(const row of data.records.Attendance){const session=data.records.Schedule.find(s=>s.id===row.session&&s.club===row.club);const member=data.records.Members.find(m=>m.id===row.member&&m.club===row.club);const before=old.records.Attendance.find(a=>a.id===row.id);const changed=JSON.stringify(before)!==JSON.stringify(row);if(!session||!member||changed&&(member.team!==session.team||session.status==="Cancelled"))return fail("Member bukan peserta tim pada sesi ini.",422);if(!["Present","Late","Absent","Excused"].includes(row.status))return fail("Status absensi tidak valid.",422);const key=row.session+":"+row.member;if(attendanceKeys.has(key))return fail("Absensi peserta pada sesi ini sudah ada.",422);attendanceKeys.add(key);if(changed){row.team=session.team;row.coachId=session.coachId;row.recordedAt=new Date().toISOString();row.recordedBy=identity.name;}}
+    const billed=new Set<string>();for(const i of data.records.Invoices){if(i.period&&i.status!=="Cancelled"){if(!/^\d{4}-\d{2}$/.test(i.period))return fail("Periode tagihan tidak valid.",422);const key=i.club+":"+i.member+":"+i.period;if(billed.has(key))return fail("Member sudah memiliki tagihan periode ini.",409);billed.add(key);}}
     for (const invoice of data.records.Invoices) {
       if (
         !data.records.Members.some(
@@ -215,19 +230,22 @@ export async function PUT(request: Request) {
         invoice.fee = before.fee;
         invoice.gateway = before.gateway;
         invoice.reference = before.reference;
+        invoice.feePayer = before.feePayer || "club";
         if (invoice.status === "Refunded") {
           invoice.refund = before.amount;
           invoice.reversedFee = before.fee;
         }
       } else if (invoice.status === "Paid") {
         invoice.fee = feeFor(invoice.amount, old.fee);
-        invoice.gateway = old.fee.gateway;
+        invoice.gateway = FIXED_FEE.gateway;
+        invoice.feePayer = "member";
         invoice.reference = "SIM-" + crypto.randomUUID();
       } else {
         invoice.fee = 0;
         invoice.gateway = 0;
       }
     }
+    for(const i of data.records.Invoices){const prev=old.records.Invoices.find(r=>r.id===i.id);if(["Paid","Failed","Refunded"].includes(i.status)&&prev?.status!==i.status){data.records.Payments.unshift({id:"PAY-"+crypto.randomUUID(),club:i.club,member:i.member,invoice:i.id,name:i.name,amount:i.amount,fee:i.status==="Failed"?0:i.fee,gateway:i.status==="Failed"?0:i.gateway,total:i.status==="Failed"?0:i.amount+(i.feePayer==="member"?i.fee+i.gateway:0),status:i.status,method:i.method||"Virtual Account",reference:i.status==="Paid"?i.reference:"SIM-"+crypto.randomUUID(),date:new Date().toISOString(),feePayer:i.feePayer});}}
     const json = JSON.stringify(data);
     const now = new Date().toISOString();
     const result = previous

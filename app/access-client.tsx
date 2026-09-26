@@ -210,10 +210,10 @@ export default function AccessPage({
                   </label>
                   <label>
                     Rencana paket
-                    <CourvixSelect name="plan" defaultValue="Growth">
-                      <option>Starter</option>
-                      <option>Growth</option>
-                      <option>Club Pro</option>
+                    <CourvixSelect name="plan" defaultValue="Starter">
+                      <option value="Starter">Starter · Rp250.000 / bulan</option>
+                      
+                      <option value="Club Pro">Club Pro · Rp500.000 / bulan</option>
                     </CourvixSelect>
                   </label>
                   <div className="access-account">
@@ -345,10 +345,10 @@ export function ClubAccess({ onUpdated }: { onUpdated?: () => void }) {
         >
           <label>
             Paket
-            <CourvixSelect name="plan" defaultValue="Growth">
-              <option>Starter</option>
-              <option>Growth</option>
-              <option>Club Pro</option>
+            <CourvixSelect name="plan" defaultValue="Starter">
+              <option value="Starter">Starter · Rp250.000 / bulan</option>
+              
+              <option value="Club Pro">Club Pro · Rp500.000 / bulan</option>
             </CourvixSelect>
           </label>
           <button disabled={busy || !data} className="btn primary">
